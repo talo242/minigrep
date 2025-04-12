@@ -1,4 +1,3 @@
-use std::env;
 use std::error::Error;
 use std::fs;
 
@@ -6,6 +5,7 @@ pub struct Config {
     pub query: String,
     pub file_path: String,
     pub ignore_case: bool,
+    pub show_line_number: bool,
 }
 
 impl Config {
@@ -16,11 +16,14 @@ impl Config {
 
         let query: String = args[1].clone();
         let file_path: String = args[2].clone();
-        let ignore_case = env::var("IGNORE_CASE").is_ok();
+        let show_line_number = args.iter().find(|a| *a == "-n").is_some();
+        let ignore_case = args.iter().find(|a| *a == "-i").is_some();
+
         Ok(Config {
             query,
             file_path,
             ignore_case,
+            show_line_number,
         })
     }
 }
@@ -29,9 +32,9 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents: String = fs::read_to_string(config.file_path)?;
 
     let results: Vec<String> = if config.ignore_case {
-        search_case_insensitive(&config.query, &contents)
+        search_case_insensitive(&config.query, &contents, config.show_line_number)
     } else {
-        search(&config.query, &contents)
+        search(&config.query, &contents, config.show_line_number)
     };
 
     if results.len() == 0 {
@@ -45,29 +48,38 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn search(query: &str, contents: &str) -> Vec<String> {
+pub fn search(query: &str, contents: &str, with_number: bool) -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
 
-    for (line_number, line) in contents.lines().enumerate() {
+    for (index, line) in contents.lines().enumerate() {
         if line.contains(query) {
-            result.push(format!("{line_number} {line}"));
+            result.push(collect_formatted_line(line, index, with_number))
         }
     }
 
     result
 }
 
-pub fn search_case_insensitive(query: &str, contents: &str) -> Vec<String> {
+pub fn search_case_insensitive(query: &str, contents: &str, with_number: bool) -> Vec<String> {
     let query = query.to_lowercase();
-    let mut result = Vec::new();
+    let mut result: Vec<String> = Vec::new();
 
-    for (line_number, line) in contents.lines().enumerate() {
+    for (index, line) in contents.lines().enumerate() {
         if line.to_lowercase().contains(&query) {
-            result.push(format!("{line_number} {line}"));
+            result.push(collect_formatted_line(line, index, with_number))
         }
     }
 
     result
+}
+
+fn collect_formatted_line(line: &str, index: usize, with_number: bool) -> String {
+    if with_number {
+        let line_number = index + 1;
+        format!("{line_number} {line}")
+    } else {
+        line.to_string()
+    }
 }
 
 #[cfg(test)]
@@ -83,7 +95,10 @@ safe, fast, productive.
 Pick three.
 Duct tape.";
 
-        assert_eq!(vec!["1 safe, fast, productive."], search(query, contents))
+        assert_eq!(
+            vec!["safe, fast, productive."],
+            search(query, contents, false)
+        )
     }
 
     #[test]
@@ -96,8 +111,38 @@ Pick three.
 Trust me.";
 
         assert_eq!(
-            vec!["0 Rust:", "3 Trust me."],
-            search_case_insensitive(query, contents)
+            vec!["Rust:", "Trust me."],
+            search_case_insensitive(query, contents, false)
+        )
+    }
+
+    #[test]
+    fn case_sensitive_with_line_number() {
+        let query = "duct";
+        let contents = "\
+Rust:
+safe, fast, productive.
+Pick three.
+Duct tape.";
+
+        assert_eq!(
+            vec!["2 safe, fast, productive."],
+            search(query, contents, true)
+        )
+    }
+
+    #[test]
+    fn case_insensitive_with_line_number() {
+        let query = "rUsT";
+        let contents = "\
+Rust:
+safe, fast, productive.
+Pick three.
+Trust me.";
+
+        assert_eq!(
+            vec!["1 Rust:", "4 Trust me."],
+            search_case_insensitive(query, contents, true)
         )
     }
 }
