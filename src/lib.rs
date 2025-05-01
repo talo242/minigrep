@@ -9,15 +9,23 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn build(args: &Vec<String>) -> Result<Config, &'static str> {
-        if args.len() < 3 {
-            return Err("not enough arguments");
-        }
+    pub fn build(mut args: impl Iterator<Item = String>) -> Result<Config, &'static str> {
+        // The first element in the array is the program's name
+        // so skip it
+        args.next();
 
-        let query: String = args[1].clone();
-        let file_path: String = args[2].clone();
-        let show_line_number = args.iter().find(|a| *a == "-n").is_some();
-        let ignore_case = args.iter().find(|a| *a == "-i").is_some();
+        let query = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a query string"),
+        };
+
+        let file_path = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a file path string"),
+        };
+
+        let show_line_number = args.find(|a| *a == "-n").is_some();
+        let ignore_case = args.find(|a| *a == "-i").is_some();
 
         Ok(Config {
             query,
