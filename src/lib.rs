@@ -59,10 +59,12 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 pub fn search(query: &str, contents: &str, with_number: bool) -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
 
-    for (index, line) in contents.lines().enumerate() {
-        if line.contains(query) {
-            result.push(collect_formatted_line(line, index, with_number))
-        }
+    for (index, line) in contents
+        .lines()
+        .enumerate()
+        .filter(|(_, l)| l.contains(query))
+    {
+        result.push(collect_formatted_line(line, index, with_number))
     }
 
     result
@@ -72,10 +74,12 @@ pub fn search_case_insensitive(query: &str, contents: &str, with_number: bool) -
     let query = query.to_lowercase();
     let mut result: Vec<String> = Vec::new();
 
-    for (index, line) in contents.lines().enumerate() {
-        if line.to_lowercase().contains(&query) {
-            result.push(collect_formatted_line(line, index, with_number))
-        }
+    for (index, line) in contents
+        .lines()
+        .enumerate()
+        .filter(|(_, l)| l.to_lowercase().contains(&query))
+    {
+        result.push(collect_formatted_line(line, index, with_number))
     }
 
     result
